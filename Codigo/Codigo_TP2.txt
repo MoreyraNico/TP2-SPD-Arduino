@@ -1,0 +1,339 @@
+// C++ code 
+// Medidor de temperatura con display y accionador de motor dc. 
+// Uso de slideswtich, para Contador de 0 a 99 y Contador de numero primos
+/* Se tomara la temperatura ambiente con un sensor de temperatura TMP36,
+dependiendo de la misma accionara una de las dos velocidades seteadas del motor dc.
+La temperatura se mostrara en los displays.*/
+/*Control de contador de 0 a 99------------------------------
+  Al estar en posicion 0 el switch comienza la cuenta del
+  contador, que al llegar a 99 vuelve a 0.
+  El valor del contador es enviado a la funcion ControlUnidadDecena
+  se encargara de la impresion en los displays*/
+
+
+
+//Seteo de pines y componentes
+#define A 12
+#define B 13
+#define C 7
+#define D 8
+#define E 9
+#define F 11
+#define G 10
+#define INTERRUPTOR 5
+#define SUBE 4
+#define BAJA 3
+#define DISPLAYUNIDAD A4
+#define DISPLAYDECENA A5
+#define APAGADO 0
+#define TIMEDISPLAYDELAY 10
+
+//Declaracion de variables
+int contador=0;
+int baja=1;
+int bajaPrevia=1;
+int sube=1;
+int subePrevia=1;
+int interruptor = 0;
+int voltaje_lectura = 0;
+int temperatura = 0;
+
+void setup()
+{
+  //Configuracion de pines, inicializamos componentes
+	pinMode(3, INPUT_PULLUP);
+	pinMode(4, INPUT_PULLUP );
+	pinMode(7, OUTPUT);
+	pinMode(8, OUTPUT);
+	pinMode(9, OUTPUT);
+	pinMode(10, OUTPUT);
+	pinMode(11, OUTPUT);
+	pinMode(12, OUTPUT);
+	pinMode(13, OUTPUT);
+  	pinMode(DISPLAYUNIDAD, OUTPUT);
+	pinMode(DISPLAYDECENA, OUTPUT);
+  
+	// No se setean los puertos in/out analogicos
+	Serial.begin(9600);//serial monitor
+}
+
+void loop()
+  /*Funcion encargada del control del contador de 0 a 99
+  y del contador de numeros primos */
+{
+  int botonpresionado = ControladorPulsadores();//lectura del pulsador,disparador
+  
+  if(botonpresionado==SUBE)
+  {
+    contador++;// Se incrementa contador +1
+    if(contador>99)// Controla el contador, en caso de que pase 99 se reseteara en la siguiente linea
+        contador=0; // reseteo de contador en caso de que pase los 99, para que vuelva a contar a 0
+  }
+  else if(botonpresionado==BAJA)
+  {
+    contador--; // Decrece el contador -1
+    if(contador<0)// si el contador es menor a 0, lleva la cuenta a 99(limite)
+		contador=99;
+  }
+  
+  /* Control del contador de numeros primos
+  si el interruptor esta en 1 se ejecuta la funcion esPrimo*/
+  interruptor = digitalRead(INTERRUPTOR);
+  if(interruptor==1)
+  {
+  	contador = funcionPrimo(contador,botonpresionado);// envia a la funcion el contador y el boton que se preciono
+    //y trae de la funcion el numero primo
+  }
+  ControlUnidadDecena(contador);//manda a la funcion imprimir el numero primo encontrado
+
+  
+  
+  
+  //Analisis de temperatura
+  voltaje_lectura = analogRead(A0);//Lectura del puerto A0, guarda en variable
+  temperatura = map(voltaje_lectura,20,358,-40,125);//Conversion de la temperatura con funcion map
+  
+  //Velocidad motor NRO 1 apartir de los 70°
+  if (temperatura>=25 && temperatura<90) 
+    analogWrite(6,127);//seteo de velocidad 127 (50% duty cicle)
+  
+  //Velocidad motor NRO 2 apartir de los 90°
+  if(temperatura>=90)
+    analogWrite(6,255);//seteo de velocidad 127 (100% duty cicle)
+  
+  //Apagado de motor a menos de 70°
+  if(temperatura<70)
+    analogWrite(6,0);//seteo de velocidad 0 (0% duty cicle)
+}
+
+
+
+void ControlUnidadDecena(int contador)
+// FUNCION CONTROL DE UNIDAD,DECENAS
+/* Procesa el dato recibido, para que sea proyectado en los displays.
+Dispara los pulsos para el multiplexado.
+RECIBE: contador que se desea imprimir
+DEVUELVE: Void*/
+{
+	controladorMultiplexado(APAGADO);//MULTIPLEXADO
+	controladorDisplay(contador/10);// Contador para display de la Decena, Encendido en 0 (contador=0) me mantiene en 0 hasta que sea 9
+	controladorMultiplexado(DISPLAYDECENA);//MULTIPLEXADO
+	controladorMultiplexado(APAGADO);//MULTIPLEXADO
+	controladorDisplay(contador - 10*((int)contador/10));// Contador para display de unidad
+	controladorMultiplexado(DISPLAYUNIDAD);//MULTIPLEXADO
+}
+
+
+void controladorMultiplexado(int control)
+  //FUNCION CONTROLADORA DE MULTIPLEXADO --------------------------- 
+  /* Se encarga del multiplexado Controla los tiempos de encendido de los display,
+  alternando sus encendidos con un tiempo de delay bajo para que sea imperceptible.
+  RECIBE: Control. La recibe de ControlUnidadDecena
+  DEVUELVE: Void*/
+{
+   //Prende los displays de forma intermitente
+	if (control==DISPLAYUNIDAD)
+	{
+		digitalWrite(DISPLAYUNIDAD, LOW); // pongo el comun de unidad en 0  se enciende
+		digitalWrite(DISPLAYDECENA, HIGH); // pongo el comun de decena en 1  se apaga
+		delay(TIMEDISPLAYDELAY);
+	}
+	else if (control == DISPLAYDECENA)
+	{
+		digitalWrite(DISPLAYUNIDAD, HIGH);
+		digitalWrite(DISPLAYDECENA, LOW);
+		delay(TIMEDISPLAYDELAY);
+	}
+	else if (control == APAGADO)
+	{	
+		digitalWrite(DISPLAYUNIDAD, HIGH);
+		digitalWrite(DISPLAYDECENA, HIGH);
+	}
+}
+
+
+
+/*Funcion encargada de buscar el numero primo.
+RECIBE: Contador, boton que se presiono
+DEVUELVE: El numero primo
+Al presionar una tecla de subir o bajar
+Utiliza un while para iterar hasta encontrar el numero primo.
+Primero controla si es un 0 o un 1, para descartarlos
+Luego lo verifica con un ciclo for el cual ira dividiendo por
+el iterador, utilizando el operador %
+si en todos los casos no es un primo ira aumentando el contador
+hasta encontrarlo, cuando lo encuentre la bandera se pondra en True y lo devolvera.
+*/
+int funcionPrimo(int contador, int botonpresionado)
+{
+  bool flag_primo = false; //Flag de busqueda
+  while(flag_primo == false)//ciclo while que busca el numero primo
+  {
+    flag_primo = true;
+    if(contador == 1 || contador == 0)//primer filtro si 0 o 1 lo descarta
+    {
+      flag_primo = false;//actualiza bandera
+    }
+  	else
+    {
+      for(int divisor=2;divisor<contador;divisor++)//2do filtro que ira operando % al contador
+      {
+        if(contador % divisor == 0)// 0 no cumple, no es primo. actualizo flag
+          flag_primo = false;
+      }
+    }
+    //Aumenta el contador apra seguir buscando el numero primo siguiente 
+ 	//o anterior dependiendo del boton presionado.
+    if(flag_primo == false && botonpresionado == SUBE)
+    {
+      contador++;
+      if(contador>99)
+      	contador=2;
+    }
+  	else if(flag_primo == false && botonpresionado == BAJA)
+    {
+      contador--;
+      if(contador<0)
+      	contador=97;
+    }
+  	else //devuelve el numero primo encontrado
+    {
+      return contador;
+    }
+  }
+}
+
+// FUNCION CONTROL DE PULSADORES /antirebote -----------------
+// Recibe: Lees el estado de los pulsadores
+// Devuelve: Identifica que pulsador se presiono, para ser procesados en el loop
+int ControladorPulsadores(void)
+{
+  sube = digitalRead(SUBE);
+  baja = digitalRead(BAJA);
+  if(sube)
+    subePrevia = 1;
+  if(baja)
+    bajaPrevia = 1;
+  	
+  	if(sube==0 && sube != subePrevia)
+    {
+      subePrevia = sube;
+      return SUBE;
+    }
+  	if(baja==0 && baja != bajaPrevia)
+    {
+      bajaPrevia = baja;
+      return BAJA;
+    }
+  return 0;
+} 
+
+
+// FUNCION CONTROLADOR DE DISPLAYS------------------------------ 
+// Control de encendido de cada segmento
+void controladorDisplay(int contador)
+{
+	digitalWrite(A, LOW);
+	digitalWrite(B, LOW);
+	digitalWrite(C, LOW);
+	digitalWrite(D, LOW);
+	digitalWrite(E, LOW);
+	digitalWrite(F, LOW);
+	digitalWrite(G, LOW);
+	switch (contador)
+  	{
+		case 1:
+      {
+			digitalWrite(B, HIGH);
+			digitalWrite(C, HIGH);
+			break;
+      }
+		case 2:
+      {
+			digitalWrite(A, HIGH);
+			digitalWrite(B, HIGH);
+			digitalWrite(D, HIGH);
+			digitalWrite(E, HIGH);
+			digitalWrite(G, HIGH);
+			break;
+      }
+		case 3:
+      {
+			digitalWrite(A, HIGH);
+			digitalWrite(B, HIGH);
+			digitalWrite(C, HIGH);
+			digitalWrite(D, HIGH);
+			digitalWrite(G, HIGH);
+			break;
+      }
+		case 4:
+      {
+			digitalWrite(B, HIGH);
+			digitalWrite(C, HIGH);
+			digitalWrite(F, HIGH);
+			digitalWrite(G, HIGH);
+			break;
+      }
+		case 5:
+      {
+			digitalWrite(A, HIGH);
+			digitalWrite(C, HIGH);
+			digitalWrite(D, HIGH);
+			digitalWrite(F, HIGH);
+			digitalWrite(G, HIGH);
+			break;
+      }
+		case 6:
+      {
+			digitalWrite(A, HIGH);
+			digitalWrite(C, HIGH);
+			digitalWrite(D, HIGH);
+			digitalWrite(E, HIGH);
+			digitalWrite(F, HIGH);
+			digitalWrite(G, HIGH);
+			break;
+      }
+		case 7:
+      {
+			digitalWrite(A, HIGH);
+			digitalWrite(B, HIGH);
+			digitalWrite(C, HIGH);
+			break;
+      }
+		case 8:
+      {
+			digitalWrite(A, HIGH);
+			digitalWrite(B, HIGH);
+			digitalWrite(C, HIGH);
+			digitalWrite(D, HIGH);
+			digitalWrite(E, HIGH);
+			digitalWrite(F, HIGH);
+			digitalWrite(G, HIGH);
+			break;
+      }
+		case 9:
+      {
+			digitalWrite(A, HIGH);
+			digitalWrite(B, HIGH);
+			digitalWrite(C, HIGH);
+			digitalWrite(D, HIGH);
+			digitalWrite(F, HIGH);
+			digitalWrite(G, HIGH);
+			break;
+      }
+		case 0:
+      {
+			digitalWrite(A, HIGH);
+			digitalWrite(B, HIGH);
+			digitalWrite(C, HIGH);
+			digitalWrite(D, HIGH);
+			digitalWrite(E, HIGH);
+			digitalWrite(F, HIGH);
+			break;
+      }
+  }
+}
+  
+  
+  
+  
