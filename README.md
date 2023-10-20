@@ -1,4 +1,4 @@
-# TP2-SPD-Arduino
+# TP3-SPD-Arduino
 Sistemas de procesamiento de datos TP 1
 Integrantes:
 Nicolas Moreyra
