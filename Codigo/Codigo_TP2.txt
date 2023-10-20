@@ -1,4 +1,15 @@
 // C++ code 
+
+
+// PARCIAL SPD NICOLAS MOREYRA
+
+//https://www.tinkercad.com/things/3LVwrHH3Xvw-copy-of-tp-2-spd-arduino/editel?sharecode=VsDGGebpFYW12HousxrL9HrbFh_kXEnb-SEKNKIys9s
+
+
+// TP 3
+// (El codigo principal del tp 3 se encuentra en voidloop())
+
+
 // Medidor de temperatura con display y accionador de motor dc. 
 // Uso de slideswtich, para Contador de 0 a 99 y Contador de numero primos
 /* Se tomara la temperatura ambiente con un sensor de temperatura TMP36,
@@ -27,8 +38,12 @@ La temperatura se mostrara en los displays.*/
 #define DISPLAYDECENA A5
 #define APAGADO 0
 #define TIMEDISPLAYDELAY 10
+#define LAMPARITA 2
 
 //Declaracion de variables
+
+int lecturaluzambiental;
+
 int contador=0;
 int baja=1;
 int bajaPrevia=1;
@@ -41,7 +56,9 @@ int temperatura = 0;
 void setup()
 {
   //Configuracion de pines, inicializamos componentes
-	pinMode(3, INPUT_PULLUP);
+	pinMode(LAMPARITA,OUTPUT);	
+  
+  	pinMode(3, INPUT_PULLUP);
 	pinMode(4, INPUT_PULLUP );
 	pinMode(7, OUTPUT);
 	pinMode(8, OUTPUT);
@@ -58,9 +75,43 @@ void setup()
 }
 
 void loop()
+ 
   /*Funcion encargada del control del contador de 0 a 99
   y del contador de numeros primos */
 {
+  //PARCIAL TP 3 
+  /* SENSOR DE LUZ AMBIENTAL
+  Dependiendo del valor que toma el sensor, encendera una 
+  lampara, y accionara el motor dc a modo de generador 
+  domiciliario.
+  
+  - El sensor esta conectado a su pin de colector, a una 
+  resistencia de 10kohms y a una entra de señal analogica (A1).
+  - Desde void loop(), leeremos la señal analogica,
+  y la guardaremos en la variable "lecturaluzambiental"
+  - Con un condicional IF determinaremos apartir de que
+  valor encenderemos una lampara y el motor. Cuanto mas luz reciba el sensor
+  menor sera la iluminacion de la lampara, y se apagara el motor.
+  Cuando el sensor este mas proxima a la oscuridad la lampara
+  brillar con mas incandecencia, y el motor se accionara
+  - Se determina que si lecturaluzamniental es mayor a 50
+  se encendera la lampara y el motor dc.
+  */
+  
+  lecturaluzambiental=analogRead(1); //lectura del sensor
+  Serial.println(lecturaluzambiental);//monitor de sensor
+  if (lecturaluzambiental > 50) //condicional
+  {
+    digitalWrite(LAMPARITA,HIGH);//encendido lampara y graduacion
+    analogWrite(6,255);//encendido motor dc
+    delay(100);
+  }
+  else
+  {
+    digitalWrite(LAMPARITA,LOW);
+  }
+
+  
   int botonpresionado = ControladorPulsadores();//lectura del pulsador,disparador
   
   if(botonpresionado==SUBE)
@@ -99,7 +150,7 @@ void loop()
   
   //Velocidad motor NRO 2 apartir de los 90°
   if(temperatura>=90)
-    analogWrite(6,255);//seteo de velocidad 127 (100% duty cicle)
+    analogWrite(6,255);//seteo de velocidad 255 (100% duty cicle)
   
   //Apagado de motor a menos de 70°
   if(temperatura<70)
@@ -333,6 +384,8 @@ void controladorDisplay(int contador)
       }
   }
 }
+  
+  
   
   
   
